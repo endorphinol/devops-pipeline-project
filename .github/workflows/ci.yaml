@@ -12,17 +12,36 @@ env:
   IMAGE_NAME: ghcr.io/endorphinol/devops-pipeline-project
 
 jobs:
-  build:
+  ci:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Build image
-        run: docker build -t $IMAGE_NAME:${{ github.sha }} .
       - name: Login in GHCR
         run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+      - name: Build image
+        run: docker build -t $IMAGE_NAME:${{ github.sha }} .
+
       - name: Push image to registry
         run: docker push $IMAGE_NAME:{{ github.sha}}
+
+  cd:
+    runs-on: ubuntu-latest
+    needs: ci
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup kubeconfig
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > kubeconfig
+
+      - name: Deploy
+        env:
+          KUBECONFIG: ${{ github.workspace }}/kubeconfig
+        run: |
+          kubectl set image deployment/my-app \
+          my-container=$flask:${{ github.sha }}

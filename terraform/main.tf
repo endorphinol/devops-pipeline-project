@@ -1,9 +1,6 @@
-// Созданная сеть
 resource "yandex_vpc_network" "network" {
   name = "network"
 }
-
-// Созданная подсеть
 resource "yandex_vpc_subnet" "subnet" {
   name           = "subnet"
   v4_cidr_blocks = ["10.2.0.0/16"]
@@ -11,7 +8,6 @@ resource "yandex_vpc_subnet" "subnet" {
   network_id     = yandex_vpc_network.network.id
 }
 
-// Создание мастер-узла
 resource "yandex_kubernetes_cluster" "master" {
   name        = "kubernetes-master"
   description = "Создание кластера Kubernetes"
@@ -26,9 +22,6 @@ resource "yandex_kubernetes_cluster" "master" {
     }
 
     public_ip = true
-
-    security_group_ids = ["${yandex_vpc_security_group.security_group_name.id}"]
-
     maintenance_policy {
       auto_upgrade = true
 
@@ -40,7 +33,6 @@ resource "yandex_kubernetes_cluster" "master" {
 
     master_logging {
       enabled                    = true
-      log_group_id               = yandex_logging_group.log_group_resoruce_name.id
       kube_apiserver_enabled     = true
       cluster_autoscaler_enabled = true
       events_enabled             = true
@@ -54,8 +46,8 @@ resource "yandex_kubernetes_cluster" "master" {
     }
   }
 
-  service_account_id      = yandex_iam_service_account.service_account_resource_name.id
-  node_service_account_id = yandex_iam_service_account.node_service_account_resource_name.id
+  service_account_id      = var.service_account_master
+  node_service_account_id = var.service_account_node
 
   labels = {
     my_key       = "my_value"
@@ -65,16 +57,11 @@ resource "yandex_kubernetes_cluster" "master" {
   release_channel         = "RAPID"
   network_policy_provider = "CALICO"
 
-  kms_provider {
-    key_id = yandex_kms_symmetric_key.kms_key_resource_name.id
-  }
-
   workload_identity_federation {
     enabled = true
   }
 }
 
-// Группа узлов в кластере Kubernetes
 resource "yandex_kubernetes_node_group" "node" {
   cluster_id  = yandex_kubernetes_cluster.master.id
   name        = "node"
@@ -99,7 +86,7 @@ resource "yandex_kubernetes_node_group" "node" {
     }
 
     boot_disk {
-      type = "network-hdd"
+      type = "network-ssd"
       size = 64
     }
 
@@ -120,7 +107,7 @@ resource "yandex_kubernetes_node_group" "node" {
 
   allocation_policy {
     location {
-      zone = "ru-central1-e"
+      zone = yandex_vpc_subnet.subnet.zone
     }
   }
 
