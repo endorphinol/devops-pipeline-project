@@ -43,5 +43,5 @@ jobs:
         env:
           KUBECONFIG: ${{ github.workspace }}/kubeconfig
         run: |
-          kubectl set image deployment/my-app \
-          flask:IMAGE_NAME${{ github.sha }}
+          kubectl set image deployment/flask-app \
+          flask=$IMAGE_NAME:${{ github.sha }}
